@@ -29,7 +29,6 @@ void Log_Fail_Write(char* request, char* filename, int code);
 
 pthread_mutex_t mutex_file = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_buffer = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_log = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t temporary_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t condition_var = PTHREAD_MUTEX_INITIALIZER;
@@ -46,13 +45,7 @@ int log_fd;
 
 int main(int argv, char** argc){
 
-   // char* buffer = (char*)malloc(BUF_SIZE);
     char* data = (char*)malloc(BUF_SIZE);
-    
-   // struct stat for_size;
-   // char delimit[] = " \r\n";
-  //  char delimit_slash[] = " /\r\n";
-    //char valid[] = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-_1234567890";
     char* request = (char*)malloc(5);
     char* out_header = (char*)malloc(BUF_SIZE);
     char* protocol = (char*)malloc(20);
@@ -78,54 +71,20 @@ int main(int argv, char** argc){
 
     pthread_t dispatch_thread;
     pthread_t thread_id[thread_num + 1];
-
-    //pthread_create(&dispatch_thread, NULL, dispatch_thread_function, NULL);
-
-    //for(int x = 0; x < thread_num; x++){
-     //   pthread_create(&thread_id[x], NULL, thread_func, NULL);
-    //} 
-
-
-
-
-
-
-
-    //int file_length = 0;
     int opt = 1;
-    //int sockfd;
-   // int new_sock, valread;
     char* filename = (char*)malloc(28 * sizeof(char));
-    //struct sockaddr_in addr_in;
-   // int len = sizeof(addr_in);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);//making a new socket
     if(sockfd == 0){
         perror("socket failed \n");
         exit(EXIT_FAILURE);
     }
-    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))){
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))){//allows reuse of socket
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
     addr_in.sin_family = AF_INET;
     addr_in.sin_addr.s_addr = INADDR_ANY;
-  /*  if(argv >1){//checks arguments for ip address and port
-        if(argv == 3){
-        addr_in.sin_port = htons(atoi(argc[2]));
-        }
-        else{
-            addr_in.sin_port = htons(PORT);
-        }
-         inet_aton(argc[1], &addr_in.sin_addr);
-         
-         //printf("%s %s\n", argc[1], argc[2]);
-    }
-    else if(argv >= 4){
-        perror("Too many cmd arguments");
-        exit(EXIT_FAILURE);
-    }
-    else{//default port 8080 and ip address 127.0.0.1
-    */
     addr_in.sin_port = htons(PORT);
 
     inet_aton("127.0.0.1", &addr_in.sin_addr);
@@ -141,28 +100,23 @@ int main(int argv, char** argc){
         }
     }
 
-    if(bind(sockfd, (struct sockaddr *) &addr_in, sizeof(addr_in)) < 0){
+    if(bind(sockfd, (struct sockaddr *) &addr_in, sizeof(addr_in)) < 0){//bind socket to port and ip address
         perror("bind failed");
         exit(EXIT_FAILURE);
 
     }
 
-    if(listen(sockfd, 5) < 0){
+    if(listen(sockfd, 5) < 0){//now listening for connections
         perror("listen");
         exit(EXIT_FAILURE);
     }
 
-    /*space for threads 
-
-    
-
-    */
 
      pthread_mutex_lock(&condition_var);
-    pthread_create(&dispatch_thread, NULL, dispatch_thread_function, NULL);
+    pthread_create(&dispatch_thread, NULL, dispatch_thread_function, NULL);//making dispatcher thread
 
     for(int x = 0; x < thread_num; x++){
-        pthread_create(&thread_id[x], NULL, thread_func, NULL);
+        pthread_create(&thread_id[x], NULL, thread_func, NULL);//making all my threads
     } 
 
 
@@ -182,7 +136,6 @@ int main(int argv, char** argc){
     
 }
 
-//int reserved_space = (length * 3) + (9 * (length % 20));
 
 void Log_Fail_Write(char* request, char* filename, int code){
     
@@ -191,21 +144,16 @@ void Log_Fail_Write(char* request, char* filename, int code){
     write(log_fd, out_header, strlen(out_header));
 
     free(out_header);
-    
 }
 
 void *dispatch_thread_function(void* dummy){
-    //struct stat for_size;
-   // char delimit[] = " \r\n";
-   // char delimit_slash[] = " /\r\n";
-   // char valid[] = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM-_1234567890";
+
     char* request = (char*)malloc(5);
     char* out_header = (char*)malloc(BUF_SIZE);
 
     
     while(1){
-
-   // int file_length = 0;
+       
     int new_sock = accept(sockfd, (struct sockaddr *) &addr_in, (socklen_t *) &len);
     if(new_sock < 0){//checks if valid socket
         perror("accept");
@@ -217,7 +165,7 @@ void *dispatch_thread_function(void* dummy){
     while(waiting <= 0){    
     }
     shared_buffer[store_index] = new_sock;
-    pthread_mutex_unlock(&condition_var);
+    pthread_mutex_unlock(&condition_var);//my threads all lock at the top of their function, this unlock releases one at a time
     printf("Post unlock\n");
     waiting--;
     
@@ -252,20 +200,15 @@ void *thread_func(void* dummy){
     
     int new_sock;
     while(1){
-        //printf("beginning of thread loop\n");
         waiting++;
         
-        //pthread_cond_wait(&condition_var, &mutex_buffer);
-        pthread_mutex_lock(&condition_var);
-       // printf("number waiting %d \n", waiting);
-        pthread_mutex_lock(&temporary_mutex);
+        pthread_mutex_lock(&condition_var);//waits for dispatcher to release it
+        pthread_mutex_lock(&temporary_mutex);//locks while reaching into shared buffer
         new_sock = shared_buffer[retrieve_index];//retrieve socket from buffer
         shared_buffer[retrieve_index] = -1;//resets the buffer space       
         retrieve_index = (++retrieve_index) % 10;//increase index
         pthread_mutex_unlock(&temporary_mutex);
-        //pthread_mutex_unlock(&mutex_buffer);
-      // printf("after unlock \n");
-        //
+
         //Parse request here
         memset(data, 0, BUF_SIZE); //resets buffers
         memset(buffer,0, BUF_SIZE);
@@ -273,20 +216,14 @@ void *thread_func(void* dummy){
 
         int invalid = 0;
         int no_length = 0;
-       // printf("pre Valread \n");
 
-       // printf("before recv\n");
         valread = recv(new_sock, buffer, BUF_SIZE, 0);
-        //printf("after recv\n");
-        //printf("data received, buffer: %s \n", buffer);
 
         if(strstr(buffer, "Content-Length:") == NULL){//if buffer does not contain Content-Length: set flag
             no_length = 1;
         }
-       // printf("length check \n");
         request = strtok(buffer, delimit);
         filename = strtok(NULL, delimit_slash);
-        //printf("filename: %s, request: %s \n", filename, request);
         for(size_t x = 0; x < strlen(filename);x++){
             int flag = 0;
             for(size_t y = 0; y < strlen(valid); y++){
@@ -445,12 +382,6 @@ void *thread_func(void* dummy){
 
         pthread_mutex_unlock(&mutex_file);
 
-        pthread_mutex_lock(&mutex_log);
-        //Write to log file here
-
-
-
-        pthread_mutex_unlock(&mutex_log);
 
 
 
